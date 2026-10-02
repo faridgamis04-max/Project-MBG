@@ -1,0 +1,157 @@
+{
+  "app_name": "PJOK Super-App",
+  "personality": "5 Brutalist Mobile",
+  "personality_one_liner": "A high-contrast, strictly monochrome command center that treats educational administration with industrial precision and utility.",
+  "color": {
+    "surface": "#FAFAFA",
+    "onSurface": "#111111",
+    "surfaceSecondary": "#F4F4F4",
+    "onSurfaceSecondary": "#111111",
+    "surfaceTertiary": "#EAEAEA",
+    "onSurfaceTertiary": "#111111",
+    "surfaceInverse": "#111111",
+    "onSurfaceInverse": "#FAFAFA",
+    "brand": "#111111",
+    "brandPrimary": "#111111",
+    "onBrandPrimary": "#FAFAFA",
+    "brandSecondary": "#333333",
+    "onBrandSecondary": "#FAFAFA",
+    "brandTertiary": "#EAEAEA",
+    "onBrandTertiary": "#111111",
+    "success": "#111111",
+    "onSuccess": "#FAFAFA",
+    "warning": "#555555",
+    "onWarning": "#FAFAFA",
+    "error": "#000000",
+    "onError": "#FAFAFA",
+    "info": "#333333",
+    "onInfo": "#FAFAFA",
+    "border": "#CCCCCC",
+    "borderStrong": "#111111",
+    "divider": "#EAEAEA",
+    "muted": "#777777",
+    "onBrand": "#FAFAFA"
+  },
+  "typography": {
+    "displayFontFamily": "Space Grotesk",
+    "textFontFamily": "Satoshi",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Use rigid grids, exposed structure, and visible spacing. Elements should be tightly grouped with hard alignment. Empty space is intentional to create tension.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 0,
+    "md": 0,
+    "lg": 0,
+    "pill": 0
+  },
+  "shadow_tier": "0",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": "false",
+    "do's": [],
+    "dont's": [
+      "No blur or glassmorphism. This is a Brutalist app with hard, opaque surfaces."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "solid surfaceSecondary",
+      "android": "solid surfaceSecondary",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "none",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Home",
+      "purpose": "Dashboard hub displaying the 7 utility modules and quick access to active classes.",
+      "states": {
+        "loading": "High-contrast skeleton blocks with mono-font 'LOADING...' labels.",
+        "empty": "N/A - Tools are always present.",
+        "error": "Hard-bordered alert box with 'SYSTEM ERROR' and a stark retry button."
+      },
+      "layout": "Vertical-first architecture. A top hero card for the primary module (Generator Modul Ajar) overlaid on a subtle grayscale photo. Below, a strict 2-column grid of hard-edged, borderStrong outlined cards for the remaining 6 modules. Use Space Grotesk for tool titles and Satoshi for short descriptions. No shadows, rely on 2pt borders."
+    },
+    {
+      "name": "Module_Form",
+      "purpose": "Universal input form for generating Modul Ajar, Soal, Rubrik, Katrol Nilai, or KKTP mapping.",
+      "states": {
+        "loading": "Spinner replaced by a Brutalist progress bar or flashing text block.",
+        "empty": "Clean form fields ready for input.",
+        "error": "Input fields bordered in hard black with explicit error icons (crosses)."
+      },
+      "layout": "Single column layout. Labels above inputs in bold/mono caps. Inputs have hard 2pt borders. A sticky 'GENERATE' button at the bottom (brandPrimary) inside a KeyboardAvoidingView. Progressive disclosure: hide advanced settings behind a rigid, bordered accordion."
+    },
+    {
+      "name": "Markdown_Viewer",
+      "purpose": "Renders AI-generated results (tables, lists, text) with a school letterhead (Kop Surat) and export options.",
+      "states": {
+        "loading": "Skeleton text lines.",
+        "empty": "No data generated yet.",
+        "error": "Failed to generate or format text."
+      },
+      "layout": "Edge-to-edge scrolling view. Top section is the 'Kop Surat' template with a logo placeholder and centered serif/sans text. Below is the markdown content with JetBrains Mono used for tables and metrics. Hard 2pt divider lines between sections. A sticky bottom bar contains three stark buttons: Word, PDF, Excel."
+    },
+    {
+      "name": "Attendance",
+      "purpose": "Field attendance tracker with health-safety status codes (H/S/I/A/K3).",
+      "states": {
+        "loading": "Skeleton list rows.",
+        "empty": "Illustration of a stopwatch with 'NO CLASS SELECTED'.",
+        "error": "Error loading student list."
+      },
+      "layout": "List-heavy view. Each row contains the student name and a segmented control (or set of rigid square toggles) for H, S, I, A, K3. The toggles use brandPrimary inversion for the selected state. A sticky summary bar at the bottom shows total counts and a 'SAVE' button."
+    },
+    {
+      "name": "Profile_Archive",
+      "purpose": "Teacher profile, class/rombel management, and saved document repository.",
+      "states": {
+        "loading": "Skeleton grids.",
+        "empty": "No archives found.",
+        "error": "Failed to load archives."
+      },
+      "layout": "Split layout: top section for teacher metadata and school info (hard-aligned left). Bottom section uses a tabbed view (Classes | Archives). Archives are listed as dense, data-rich rows with mono timestamps and download icons."
+    }
+  ],
+  "images": {
+    "hero_bg": {
+      "url": "https://images.unsplash.com/photo-1595909315417-2edd382a56dc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwyfHxneW0lMjB3aGlzdGxlfGVufDB8fHxibGFja19hbmRfd2hpdGV8MTc5MDkwMjg0M3ww&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.unsplash.com/photo-1595909315417-2edd382a56dc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwyfHxneW0lMjB3aGlzdGxlfGVufDB8fHxibGFja19hbmRfd2hpdGV8MTc5MDkwMjg0M3ww&ixlib=rb-4.1.0&q=85",
+      "alt": "Black and white gym equipment, whistle, shoes"
+    },
+    "empty_state_stopwatch": {
+      "url": "https://images.unsplash.com/photo-1704265586142-db3e17d0dea0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwxfHxzdG9wd2F0Y2glMjB0aW1lcnxlbnwwfHx8YmxhY2tfYW5kX3doaXRlfDE3OTA5MDI4NDN8MA&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.unsplash.com/photo-1704265586142-db3e17d0dea0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwxfHxzdG9wd2F0Y2glMjB0aW1lcnxlbnwwfHx8YmxhY2tfYW5kX3doaXRlfDE3OTA5MDI4NDN8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "A close up of a stopwatch on a black background"
+    }
+  },
+  "instructions_to_main_agent": [
+    "IMPLEMENTATION: Strictly adhere to the Brutalist Mobile personality. Zero border radius across all components (sm: 0, md: 0, lg: 0).",
+    "COLOR: The user explicitly requested a gray-black mix (abu-hitam). Stick entirely to the provided monochrome color tokens. Do not introduce ANY blues, indigos, or purples. Status colors (success, error) are also mapped to grayscale; rely on icons (checkmarks, crosses) to convey status to ensure accessibility.",
+    "TYPOGRAPHY: Use Space Grotesk for display/headers and Satoshi for body. IMPORTANT: Use a mono font like JetBrains Mono for all data tables, grading scaling output, and attendance codes to emphasize the industrial utility feel.",
+    "LAYOUT: Forms must use progressive disclosure (accordions) for advanced AI prompt settings to avoid overwhelming the user. Implement sticky CTA buttons at the bottom of forms and markdown viewers.",
+    "MARKDOWN: The markdown viewer must support robust table rendering (for grading and rubrics) with hard 2pt borders, aligning with the Brutalist theme. Include a 'Kop Surat' (school letterhead) template at the top.",
+    "ATTENDANCE: For the field attendance tracker, use dense list rows with a segmented control or 5 rigid square toggles for H, S, I, A, K3. Ensure touch targets are at least 44x44pt.",
+    "NAVIGATION: Use a bottom tab navigator for (1) Dashboard, (2) Active Class/Rombel, (3) Archive/Profile. The 7 modules should be pushed onto a Stack Navigator from the Dashboard."
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "summary": "Backend-only testing for PJOK Super-App. Created pytest suite at /app/backend/tests/test_pjok_backend.py covering health, profile GET/PUT, 4 AI generation endpoints (modul-ajar, soal, rubrik, kktp), classes CRUD with soft-delete, attendance auto-resolution with K3 safety warnings, archives CRUD, and export (pdf/docx/xlsx). Result: 21/21 tests pass when run sequentially; 20/21 pass under pytest-xdist parallel mode because the Emergent LLM key has a concurrent_request_limit (429) and TestGenerateKKTP collides with another /generate call on gw1 vs gw0. Attendance K3 safety logic verified: empty status -> 'H' with '(Perlu Konfirmasi Guru)' note, status S/K3 produce DIBERIKAN TUGAS AMATAN TEORI warnings in both records[].note and warnings[]. Summary counts correct (H counts auto-resolved absentees). All exports return correct binaries: PDF (%PDF header), DOCX & XLSX (PK zip header) with correct Content-Type. All AI endpoints return archive {id,title,markdown,meta}: modul-ajar & soal have meta.show_kop=true (and soal has meta.show_identitas_siswa=true); rubrik & kktp have meta.show_kop=false. No ObjectId leakage observed in any serialized response.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/generate/* (any)", "issue": "Emergent LLM plan has concurrent_request_limit=1; parallel calls return 429 which the server surfaces as HTTP 500 via emergentintegrations ChatError. Not a code bug per se, but no retry/backoff and the error is not translated to a user-friendly 429/503. Consider wrapping generate_markdown with a single-flight lock or try/except -> HTTPException(503, 'LLM sibuk, coba lagi')."},
+      {"endpoint": "GET /api/classes/{id}, POST /api/classes/{id}/attendance", "issue": "ObjectId(class_id) is called without try/except; a malformed id raises bson.errors.InvalidId -> HTTP 500 instead of 400/404. Low priority."},
+      {"endpoint": "GET /api/archives/{id}/export", "issue": "format param is not validated; any non-pdf/docx/xlsx value silently falls back to pdf. Consider explicit 400 on invalid format."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pjok_backend.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Optional: wrap generate_markdown in a try/except and raise HTTPException(503) with 'LLM sibuk/limit' message so clients see a proper status instead of 500 when Emergent concurrent limit is hit.",
+    "Optional: validate ObjectId inputs with a helper that raises 400 on malformed ids (classes & archives routes).",
+    "Optional: validate format query param on /api/archives/{id}/export (reject anything not in {pdf,docx,xlsx} with 400)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is one monolithic file (~455 lines) - acceptable size, but could be split into routers/profile.py, routers/classes.py, routers/archives.py as the app grows.",
+    "resolve_attendance correctly uppercases and strips status; K3 safety text matches spec exactly.",
+    "_serialize converts _id -> id and drops ObjectId; good. BaseDocument.to_mongo also pops _id correctly on insert.",
+    "No pagination on list endpoints (hard cap to_list(500)); fine for current scale.",
+    "update_class uses body.model_dump() with ClassCreate - overwrites all fields including students; by design but worth noting."
+  ],
+  "updated_files": [
+    "/app/backend/tests/__init__.py (new)",
+    "/app/backend/tests/conftest.py (new)",
+    "/app/backend/tests/test_pjok_backend.py (new)"
+  ],
+  "success_rate": {"backend": "100% (21/21 sequential; 20/21 parallel due to LLM concurrency limit)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "All test data prefixed with 'TEST ' and soft-deleted/cleaned via fixture teardowns (classes & archives). Profile was overwritten with TEST values and left in place (singleton, main agent should re-seed real profile if needed).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run tests sequentially (pytest -o 'addopts=') to avoid LLM 429s. BASE_URL comes from EXPO_PUBLIC_BACKEND_URL in /app/frontend/.env. All 4 /api/generate/* endpoints each take ~20-30s. Attendance auto-resolve expectations: empty status -> H + '(Perlu Konfirmasi Guru)'; S or K3 -> warning text 'DIBERIKAN TUGAS AMATAN TEORI (TIDAK BOLEH IKUT PRAKTIK FISIK BERAT)'. Export binary headers: PDF starts with %PDF, DOCX/XLSX start with PK.",
+  "rca_of_issue": "The single 'failure' observed (TestGenerateKKTP under -n auto) is a test-infra artefact, not a product bug. Emergent LLM key currently enforces concurrent_request_limit=1; pytest-xdist ran /generate/modul-ajar on gw0 at the same moment /generate/kktp fired on gw1, producing 429 at the LiteLLM layer which bubbles up as 500. Reproduction: run `pytest -n 2 backend/tests/`. Mitigation: either (a) run with -o 'addopts=' sequentially, or (b) have backend serialize LLM calls with an asyncio.Semaphore(1) and convert 429 into HTTPException(503). Re-ran TestGenerateKKTP alone and it passed."
+}
