@@ -1,0 +1,41 @@
+{
+  "summary": "Full regression PJOK Super-App. Backend non-AI: 34/34 pytest pass (classes CRUD, attendance resolve + K3 warning, recap math + zero-session, recap xlsx export with logo+kop, archives CRUD + PDF/DOCX/XLSX export with embedded logo verified via existing suite, journals CRUD, profile+logo upload/get/delete/5MB-reject, malformed-ID 400s). Backend AI: 0/5 endpoints functional — ALL 4 generators (modul-ajar, soal, rubrik, kktp) return 503 and the logo-embedded-export test fails because it depends on generate/modul-ajar. Root cause confirmed in /var/log/supervisor/backend.err.log: litellm.RateLimitError 'Budget has been exceeded! Key=davicdi7donc73ch6hh0 Current cost: 1.06853, Max budget: 1.0'. Not a code bug — EMERGENT_LLM_KEY budget exhausted. Frontend: Beranda 7-module layout, 4 tabs (Beranda/Kelas/Arsip/Profil), Profil with logo+fields, Arsip filter chips all render on 390x844. New-feature verification: (1) 'Buat Jurnal' button on each session card at /class/[id] opens /jurnal with auto-prefilled form — tanggal=2026-01-15, kelas=TEST UI 8A, materi=Sepak Bola, kegiatan='Materi: Sepak Bola. Kehadiran — H:1 · S:1 · I:0 · A:0 · K3:0.' ✓. (2) Excel export icon in Rekap header triggers window.open to /api/classes/{id}/recap/export; endpoint returns valid 6789-byte xlsx (verified via `file`). (3) Logo-embed in xlsx/docx/pdf covered by existing iteration-1 passing test. No deprecated expo packages. No React Native issues. Not able to UI-verify AI generators due to budget exhaustion.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/generate/modul-ajar, /api/generate/soal, /api/generate/rubrik, /api/generate/kktp", "issue": "All 4 AI generators return 503 'Layanan AI sedang sibuk, coba lagi sebentar lagi.' Backend log shows underlying error: 'litellm.RateLimitError: Budget has been exceeded! Key=davicdi7donc73ch6hh0 (sk-...RHGA) Current cost: 1.06853, Max budget: 1.0'. EMERGENT_LLM_KEY in /app/backend/.env is over its budget cap. All 4 AI features (Modul 1,2,3,5) and the auto-save-to-archive flows that depend on them are non-functional until the key is topped up / rotated. This also breaks TestLogoEmbeddedExport.", "priority": "CRITICAL"}
+    ],
+    "minor": [
+      {"endpoint": "N/A (code review)", "issue": "server.py generate_markdown masks the underlying LLM exception by raising 503 with a generic Indonesian message. For debuggability, consider including err.__class__.__name__ (or RateLimitError-specific message like 'Kuota AI habis') so the caller/user can distinguish 'budget exhausted' from 'temporarily busy'."},
+      {"endpoint": "Pytest fixtures", "issue": "PytestRemovedIn10Warning: class-scoped fixtures defined as instance methods in test_pjok_backend.py (e.g. TestClassesCRUD.setup). Will break on pytest 10. Convert to @classmethod + set attrs on cls, or module-level fixtures."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Any AI generator screen (/module/modul-ajar, /soal, /rubrik, /kktp)", "issue": "Hitting Generate will toast '503 Layanan AI sedang sibuk' because of EMERGENT_LLM_KEY budget cap (see backend critical). Could not UI-verify these flows this iteration.", "affected_testIDs": ["btn-generate-modul-ajar", "btn-generate-soal", "btn-generate-rubrik", "btn-generate-kktp"]}
+    ],
+    "design_issues": [
+      {"screen": "Rekap Kehadiran", "issues": ["(Carry-over from iter 1) Table body is horizontally scrollable but on 390px viewport only Nama + H/S/I/A/K3 fit; %HADIR column needs scroll — now has persistentScrollbar so already improved vs iter1."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_pjok_backend.py", "/app/backend/tests/test_pjok_iter2.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "URGENT: Rotate/top-up EMERGENT_LLM_KEY (budget exhausted at 1.06853/1.0). Without it all 4 AI generators + logo-embedded-export test will keep failing.",
+    "Optional: refine 503 message in server.generate_markdown to distinguish RateLimitError (quota) from generic LLM failure for easier user support.",
+    "Optional: migrate class-scoped setup fixtures off instance-method pattern to be pytest 10-compatible."
+  ],
+  "critical_code_review_comments": [
+    "generate_markdown swallows all LLM exceptions as generic 503 — logs show real cause (RateLimitError) but UI gets opaque message.",
+    "All 3 new features implemented cleanly: recap/export route reuses _compute_recap, recap_to_xlsx embeds logo via _embed_xlsx_logo (shared with to_xlsx), class/[id].tsx buatJurnal builds kegiatan from session.summary and router.push with auto=1 — jurnal.tsx guards with prefilled.useRef so modal is only auto-opened once per nav. ",
+    "No deprecated expo packages (expo-av/expo-barcode-scanner/expo-background-fetch not present).",
+    "_serialize strips MongoDB _id consistently; soft-delete pattern uniform across classes/archives/journals/attendance."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "87% (34/39: all 5 failures caused by exhausted LLM budget, not code)", "frontend": "100% of non-AI flows tested (auto-journal, recap export icon, tabs, profil, arsip). AI generator UIs not retested this iteration due to backend budget cap."},
+  "seed_data_creation": "Created and soft-deleted TEST UI 8A class with 2 students + 1 attendance session (H+S, generated K3 warning) to verify Buat Jurnal auto-fill and Rekap xlsx export. Cleaned up after test.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend LLM key budget is exhausted — any /api/generate/* call will return 503 until the key is rotated or budget raised. Non-AI backend + all frontend flows are green. To retest AI, confirm new key via `curl -X POST .../api/generate/rubrik -d '{\"jenjang\":\"SMP\",\"cabang\":\"Senam\"}'` returns 200 before running the full generate test classes. Existing LogoEmbeddedExport test in test_pjok_iter2.py also exercises generate_modul_ajar and will pass once budget is restored.",
+  "rca_of_issue": "All 4 AI generator endpoints and the dependent LogoEmbeddedExport test fail with HTTP 503. Backend ERROR log at /var/log/supervisor/backend.err.log shows: 'litellm.RateLimitError: RateLimitError: OpenAIException - Budget has been exceeded! Key=davicdi7donc73ch6hh0 (sk-...RHGA) Current cost: 1.06853, Max budget: 1.0'. Reproduction: `curl -X POST https://mbg-builder.preview.emergentagent.com/api/generate/rubrik -H 'Content-Type: application/json' -d '{\"jenjang\":\"SMP\",\"cabang\":\"Senam\"}'` -> 503 + body 'Layanan AI sedang sibuk, coba lagi sebentar lagi.' Mitigation: rotate EMERGENT_LLM_KEY in /app/backend/.env (or increase budget) and `sudo supervisorctl restart backend`. Optional dev-UX improvement: surface quota-exceeded as a distinct message in generate_markdown exception handler."
+}

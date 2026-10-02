@@ -183,6 +183,14 @@ async def generate_markdown(user_prompt: str, session_id: str) -> str:
             resp = await chat.send_message(UserMessage(text=user_prompt))
         except Exception as e:
             logger.error("LLM error: %s", e)
+            msg = str(e).lower()
+            if any(k in msg for k in ("budget", "quota", "insufficient", "exceeded", "credit", "payment", "402")):
+                raise HTTPException(
+                    402,
+                    "Saldo AI (Universal Key) habis. Buka Profile → Manage plan → Universal Key → Add Balance untuk menambah saldo, lalu coba lagi.",
+                )
+            if any(k in msg for k in ("rate limit", "429", "too many")):
+                raise HTTPException(429, "Terlalu banyak permintaan AI. Tunggu sebentar lalu coba lagi.")
             raise HTTPException(503, "Layanan AI sedang sibuk, coba lagi sebentar lagi.")
     return resp if isinstance(resp, str) else str(resp)
 

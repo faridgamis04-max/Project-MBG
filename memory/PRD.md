@@ -58,5 +58,10 @@ nilai, presensi) dengan cepat sesuai Kurikulum Merdeka.
 - P2: Streaming output AI (token-by-token) untuk dokumen panjang
 - P2: Dark mode toggle manual
 
+### Regression + fix (2026-10-02)
+- [x] Regresi menyeluruh semua fitur: SEMUA endpoint non-AI hijau (profil, logo, kelas CRUD, presensi+K3, rekap, ekspor PDF/DOCX/XLSX+logo, ekspor rekap xlsx, jurnal, 3 fitur baru). Diverifikasi testing agent.
+- [x] Fix pesan error AI: generate_markdown kini memetakan error saldo/kuota -> HTTP 402 pesan "Saldo AI (Universal Key) habis..." dan rate-limit -> 429 (sebelumnya semua jadi 503 "sibuk" yang menyesatkan). Verified 39/44 pytest (5 sisanya butuh saldo key).
+- [!] CATATAN NON-KODE: saldo EMERGENT_LLM_KEY habis (cost 1.069 > budget 1.0) — generator AI kembali jalan setelah user top-up saldo Universal Key.
+
 ## Next Tasks
 Lihat Next Action Items pada ringkasan finish.

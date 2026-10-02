@@ -1,0 +1,47 @@
+{
+  "summary": "Iteration 3 bug-fix verification + regression. VERIFIED: generate_markdown in /app/backend/server.py now maps LLM quota/budget errors to HTTP 402 with the exact Indonesian message 'Saldo AI (Universal Key) habis. Buka Profile → Manage plan → Universal Key → Add Balance untuk menambah saldo, lalu coba lagi.' All 4 AI generators (POST /api/generate/modul-ajar, /soal, /rubrik, /kktp) correctly return 402 with this exact detail — the old generic 503 'Layanan AI sedang sibuk' path is no longer taken for budget-exhausted responses. NO REGRESSION on any non-AI endpoint: 34/34 non-AI tests pass (health GET /api/, profile GET/PUT + logo POST/GET/DELETE + 5MB reject + has_logo flag, classes CRUD incl. edit-siswa PUT replace, attendance POST with K3 warnings, list_attendance, recap math + zero-session, recap xlsx export, archives list/get/soft-delete + malformed-ID 400s, journals CRUD + tanggal-desc sort + soft-delete). Added new /app/backend/tests/test_pjok_iter3_quota.py with 5 tests (4 per-endpoint + 1 guardrail) — all 5 pass. The 5 failing tests in the full run (TestGenerateModulAjar/Soal/Rubrik/KKTP in test_pjok_backend.py + TestLogoEmbeddedExport in test_pjok_iter2.py) are legacy iter1/iter2 happy-path tests that assert 200 from live LLM; they now receive 402 because the key budget is still exhausted — this is the EXPECTED behavior under the new error-mapping fix and is a billing/key issue (NOT a code bug) per the review request's explicit instruction. Overall: 39/44 passed (5 failures all explainable by exhausted EMERGENT_LLM_KEY budget, same root cause as iter2). Curl re-verification: `POST /api/generate/rubrik` → HTTP 402 with the exact Indonesian saldo-habis body (confirmed byte-for-byte).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "N/A (test hygiene)", "issue": "Legacy iter1/iter2 generator tests (test_pjok_backend.py::TestGenerate* and test_pjok_iter2.py::TestLogoEmbeddedExport) hardcode `assert status_code == 200` and now fail with 402 because the key budget is exhausted. These are not code regressions, but main agent may want to mark them with pytest.mark.skipif / xfail('ai-budget-dependent') so a clean green run is possible without a funded key."},
+      {"endpoint": "Pytest fixtures (carry-over)", "issue": "PytestRemovedIn10Warning: class-scoped fixtures defined as instance methods in test_pjok_backend.py. Will break on pytest 10 — convert to @classmethod + set attrs on cls."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pjok_iter3_quota.py",
+    "/app/backend/tests/test_pjok_iter2.py",
+    "/app/backend/tests/test_pjok_backend.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "No code action required — bug fix is verified working. 402 quota mapping is correct.",
+    "URGENT (billing, not code): top-up or rotate EMERGENT_LLM_KEY in /app/backend/.env (current cost 1.06853 / max budget 1.0) so the live AI happy-path tests + real user AI generation flows can function. After top-up, re-run `pytest /app/backend/tests/` — all 44 tests should go green.",
+    "Optional: refactor legacy generator tests in test_pjok_backend.py & TestLogoEmbeddedExport to pytest.mark.xfail(reason='requires funded EMERGENT_LLM_KEY', strict=False) so CI stays green under exhausted-budget scenarios.",
+    "Optional (carry-over): migrate class-scoped setup fixtures off instance-method pattern for pytest 10 compatibility."
+  ],
+  "critical_code_review_comments": [
+    "generate_markdown in server.py:175-195 now cleanly branches on exception message substrings: ('budget','quota','insufficient','exceeded','credit','payment','402') → HTTPException(402, saldo-habis-id); ('rate limit','429','too many') → HTTPException(429, …); fallthrough → HTTPException(503, …). Case-insensitive via .lower(). Correct ordering (quota checked before rate-limit, avoiding mis-mapping of 'exceeded' phrases). Message matches the review-request contract byte-for-byte.",
+    "Semaphore(_llm_lock=1) around chat.send_message prevents concurrent LLM calls on the single-concurrency key — exception is raised INSIDE the lock, so FastAPI's exception handler releases the lock on `async with` exit (correct).",
+    "No new changes elsewhere; _serialize still strips _id; soft-delete pattern uniform; CORS/startup/shutdown unchanged."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pjok_iter3_quota.py (new)",
+    "/app/test_reports/iteration_3.json (new)",
+    "/app/test_reports/pytest/pytest_results.xml (regenerated)"
+  ],
+  "success_rate": {
+    "backend": "89% (39/44). The 5 failures are all pre-existing legacy AI happy-path tests failing because EMERGENT_LLM_KEY budget is exhausted — SAME root cause as iter2. 100% (34/34) of non-AI endpoints pass → zero regression. 100% (5/5) of the new 402-quota-mapping tests pass → bug fix verified.",
+    "frontend": "N/A (backend-only testing requested)"
+  },
+  "seed_data_creation": "Transient TEST_* classes/journals created & soft-deleted within each pytest class (TestEditSiswa, TestRecap, TestJournalsCRUD). Each test cleans up via DELETE at teardown. No persistent test pollution.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Bug fix VERIFIED: /api/generate/* now returns 402 with 'Saldo AI (Universal Key) habis. …' when EMERGENT_LLM_KEY budget is exhausted (confirmed byte-for-byte via curl + 5 pytest tests). To retest the live-AI happy path after a key top-up, (1) rotate EMERGENT_LLM_KEY in /app/backend/.env, (2) `sudo supervisorctl restart backend`, (3) `pytest /app/backend/tests/` — expect all 44 to pass. The quota-mapping tests in test_pjok_iter3_quota.py will START FAILING once budget is restored (they EXPECT 402); mark them xfail or guard them with a budget-probe fixture if you want both suites green simultaneously.",
+  "rca_of_issue": "N/A — this iteration is a bug-fix VERIFICATION, not a bug report. The underlying 'budget exhausted' condition still exists (same iter2 RCA) but is now surfaced with the correct HTTP 402 + Indonesian saldo-habis message instead of the previous generic 503. Reproduction of the fix: `curl -X POST https://mbg-builder.preview.emergentagent.com/api/generate/rubrik -H 'Content-Type: application/json' -d '{\"jenjang\":\"SMP\",\"cabang\":\"Senam\"}'` → HTTP 402, body: {\"detail\":\"Saldo AI (Universal Key) habis. Buka Profile → Manage plan → Universal Key → Add Balance untuk menambah saldo, lalu coba lagi.\"}."
+}
