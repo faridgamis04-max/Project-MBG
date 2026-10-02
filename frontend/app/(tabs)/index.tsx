@@ -15,8 +15,8 @@ type Mod = { key: string; title: string; desc: string; icon: string; route: stri
 
 const MODULES: Mod[] = [
   { key: "soal", num: "02", title: "Bank Soal", desc: "Naskah soal + kunci & kisi-kisi", icon: "clipboard-text-outline", route: "/module/soal" },
-  { key: "rubrik", num: "03", title: "Rubrik Nilai", desc: "Instrumen psikomotorik & afektif", icon: "star-check-outline", route: "/module/rubrik" },
-  { key: "katrol", num: "04", title: "Katrol Nilai", desc: "Linear scaling nilai akurat", icon: "calculator-variant-outline", route: "/module/katrol" },
+  { key: "rubrik", num: "03", title: "Rubrik Nilai", desc: "Kriteria, kelompok & individu + KKM manual", icon: "star-check-outline", route: "/module/rubrik" },
+  { key: "katrol", num: "04", title: "Katrol Nilai", desc: "Linear scaling + rata-rata kelas", icon: "calculator-variant-outline", route: "/module/katrol" },
   { key: "kktp", num: "05", title: "Lingkup & KKTP", desc: "Pemetaan materi & kriteria", icon: "map-marker-path", route: "/module/kktp" },
   { key: "presensi", num: "06", title: "Presensi", desc: "Absensi lapangan + K3", icon: "account-check-outline", route: "/kelas" },
   { key: "profil", num: "07", title: "Profil & Arsip", desc: "Identitas guru & dokumen", icon: "account-cog-outline", route: "/profil" },

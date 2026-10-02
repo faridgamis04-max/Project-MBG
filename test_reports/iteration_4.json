@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 4: full verification of the rewritten RUBRIK (3-tabel calculator + KKM manual) and KATROL (linear scaling) modules — both backend (archive persistence) and frontend (UI + calc correctness). ALL TESTS PASS. KATROL: input '40, 55, 60, 72, 85' -> Min Asli 40 / Max Asli 85 auto-detected, katrol results exactly [75, 83.3, 86.1, 92.8, 100], Rata-Rata Kelas 87.4; Target Min 75->70 recomputes real-time (40->70, 85->100); same-values '50 50' -> all = Target Min with info note, no crash; garbage input 'abc xyz' hides result table with no error; Simpan -> POST /api/archives -> /viewer/[id] renders parameter table + rata-rata. RUBRIK: defaults verified (KKM 75, 7 kriteria, Total Skor Maksimal 36); bobot 2->3 recomputes max 36->40; tambah/hapus kriteria works (7->8->7, max 36->40->36); Tabel 2 all-skor-3 -> 27/36, Nilai 75, 'C · Cukup', LULUS; all-skor-4 -> 36/36, 100, 'A · Sangat Baik'; KKM 75->80 flips nilai-75 group to REMEDIAL and back; tambah+hapus kelompok kedua leaves group 1 calc intact; Tabel 3 auto-lists 2 members, Nilai Individu 80 -> N.AKHIR 76.5 (0.7*75+0.3*80) LULUS, emptied -> '-'; Simpan -> viewer shows all 3 markdown tables + KKM header. REGRESI: Beranda renders all 7 module cards with new Rubrik/Katrol descriptions; /module/modul-ajar, /module/soal, /module/kktp render; tabs Kelas/Arsip/Profil render; both new docs appeared in Arsip before cleanup. Backend pytest 3/3 pass (rubrik + katrol archive create->GET verify->type filter->soft-delete->404, health). AI generator endpoints NOT tested per instructions (EMERGENT_LLM_KEY budget exhausted — known billing issue, not a code bug).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/viewer/[id] (mobile 375px)", "issues": ["Tabel 1 rubrik di viewer: kolom markdown sangat sempit sehingga teks terpotong vertikal per-huruf ('Ketepa tan Geraka n') — masih terbaca tapi buruk di layar sempit; pertimbangkan horizontal scroll untuk tabel lebar di viewer"]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pjok_iter4_calc.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Minor (optional): rubrik.tsx Tabel 3 memakai key individu berbasis index `${gi}:${mi}` — jika kelompok di tengah dihapus, nilai individu yang sudah diisi bergeser ke siswa kelompok lain. Gunakan key stabil berbasis group.id + nama/index anggota.",
+    "Minor (optional): katrol.tsx parseValues — `.replace(',', '.')` tidak pernah berfungsi untuk desimal koma karena split(/[\\s,;]+/) memecah '83,5' menjadi '83' dan '5' lebih dulu. Sesuai spec koma = separator, jadi aman; hapus dead code atau dokumentasikan.",
+    "Minor (optional): viewer markdown table pada viewport 375px memecah sel per-huruf; tambahkan horizontal scroll untuk tabel lebar.",
+    "Carry-over (bukan bug kode): EMERGENT_LLM_KEY budget masih habis — top-up agar 4 generator AI & legacy happy-path tests hijau kembali."
+  ],
+  "critical_code_review_comments": [
+    "rubrik.tsx: kalkulasi benar — maxTotal = sum(bobot)*4 (36 default), Nilai = round1(totalBobot/maxTotal*100), Nilai Akhir = round1(0.7*nKel + 0.3*nInd), predikat A>=90/B>=80/C>=70/D, status vs KKM manual. Semua terverifikasi via UI.",
+    "katrol.tsx: rumus linear scaling benar, guard range===0 -> Target Min (IFERROR-safe), parseValues memfilter token non-numerik (garbage-safe), hasil round1, rata-rata kelas dibulatkan 1 desimal. Terverifikasi angka persis: [75, 83.3, 86.1, 92.8, 100], avg 87.4.",
+    "useCreateArchive mem-post {type,title,markdown,meta} ke /api/archives dan invalidate query archives -> dokumen langsung muncul di tab Arsip. Backend save_archive men-strip _id dengan benar.",
+    "Tidak ada paket deprecated (expo-av dll) di file yang direview; semua teks terbungkus Text; testID lengkap pada elemen interaktif."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pjok_iter4_calc.py (new)",
+    "/app/test_reports/iteration_4.json (new)",
+    "/app/test_reports/pytest/pytest_results.xml (regenerated)"
+  ],
+  "success_rate": {
+    "backend": "100% (3/3 iter4 archive tests pass; AI endpoints not tested per instruction — budget exhausted)",
+    "frontend": "100% (katrol: 15/15 assertions; rubrik: 22/22 assertions incl. all calc values; regression: 18/18 checks)"
+  },
+  "seed_data_creation": "Transient: pytest created TEST_ITER4_ rubrik & katrol archives and soft-deleted them in-test. UI tests saved 2 archives (viewer ids 6abf5002..., 6abf4fae...) — both soft-deleted via API after verification. No persistent pollution.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Rubrik & Katrol calculators fully working (client-side) incl. save-to-archive + viewer render. If revisiting: backend suite = pytest /app/backend/tests/ (expect 5 legacy AI happy-path tests to fail with 402 until EMERGENT_LLM_KEY is topped up — expected, not regression). Known minor edge: Tabel 3 individu values shift if a middle group is deleted (index-based keys). Test credentials: none needed (tanpa login).",
+  "rca_of_issue": "No bugs found this iteration. Minor design observation: viewer markdown tables wrap per-character on 375px screens (viewer renderer lacks horizontal scroll for wide tables) — cosmetic only."
+}
