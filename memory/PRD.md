@@ -49,10 +49,12 @@ nilai, presensi) dengan cepat sesuai Kurikulum Merdeka.
 - [x] Testing pasca-import: backend 39/39 pass, semua flow frontend pass
 - [x] Fix minor: footer modal Kelas tahan keyboard (KeyboardAvoidingView), race condition form Profil (dirty ref), indikator scroll horizontal tabel Rekap
 
+### Iterasi fitur (2026-10-02)
+- [x] Logo di Excel — logo sekolah kini tertanam di ekspor Excel (dokumen & rekap), konsisten dengan Word/PDF. `export_utils._embed_xlsx_logo` + openpyxl/PIL
+- [x] Ekspor Rekap Excel — GET /api/classes/{id}/recap/export → recap_to_xlsx (kop + logo + tabel No/Nama/H/S/I/A/K3/Total/%Hadir), tombol di header layar Rekap
+- [x] Jurnal Otomatis — kartu sesi presensi punya tombol "Buat Jurnal" yang membuka modal jurnal terisi otomatis (tanggal, kelas, materi, ringkasan kehadiran) via query params
+
 ## Backlog
-- P1: Jurnal bisa prefilled dari sesi presensi (auto-link)
-- P2: Rekap kehadiran bisa diekspor ke Excel
-- P2: Logo tertanam juga di ekspor Excel (saat ini Word & PDF saja)
 - P2: Streaming output AI (token-by-token) untuk dokumen panjang
 - P2: Dark mode toggle manual
 

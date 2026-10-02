@@ -474,6 +474,10 @@ async def list_attendance(class_id: str):
 
 @api_router.get("/classes/{class_id}/recap")
 async def attendance_recap(class_id: str):
+    return await _compute_recap(class_id)
+
+
+async def _compute_recap(class_id: str) -> dict:
     cls = await db.classes.find_one({"_id": oid(class_id), "deleted_at": None})
     if not cls:
         raise HTTPException(404, "Kelas tidak ditemukan")
@@ -481,10 +485,6 @@ async def attendance_recap(class_id: str):
     total = len(sessions)
     students = cls.get("students", [])
 
-    def key_of(nama, no):
-        return f"{no}|{nama}".strip("|")
-
-    # Build lookup of records per session by name
     recap = []
     codes = ["H", "S", "I", "A", "K3"]
     for st in students:
@@ -504,6 +504,32 @@ async def attendance_recap(class_id: str):
             "hadir_pct": pct,
         })
     return {"total_sessions": total, "class_name": cls.get("nama_kelas", ""), "students": recap}
+
+
+@api_router.get("/classes/{class_id}/recap/export")
+async def export_recap(class_id: str):
+    recap = await _compute_recap(class_id)
+    prof = await get_profile_doc()
+    meta = {
+        "show_kop": bool(prof.get("nama_sekolah") or prof.get("dinas")),
+        "dinas": prof.get("dinas", ""),
+        "nama_sekolah": prof.get("nama_sekolah", ""),
+        "alamat_sekolah": prof.get("alamat_sekolah", ""),
+        "npsn": prof.get("npsn", ""),
+    }
+    logo_bytes = None
+    if prof.get("logo_path"):
+        try:
+            logo_bytes, _ = await run_in_threadpool(storage.get_object, prof["logo_path"])
+        except Exception:
+            logo_bytes = None
+    data = await run_in_threadpool(export_utils.recap_to_xlsx, recap, meta, logo_bytes)
+    safe = re.sub(r"[^A-Za-z0-9]+", "_", recap.get("class_name") or "rekap")[:50] or "rekap"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="Rekap_{safe}.xlsx"'},
+    )
 
 
 # ---------------------------------------------------------------------------

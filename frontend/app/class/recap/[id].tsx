@@ -3,7 +3,9 @@ import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Header } from "@/src/components/Header";
 import { Icon } from "@/src/components/Icon";
+import { useToast } from "@/src/components/toast";
 import { useRecap } from "@/src/hooks";
+import { downloadRecap } from "@/src/download";
 import { makeStyles, spacing, fontSize, fonts, useTheme } from "@/src/theme";
 
 const CODES = ["H", "S", "I", "A", "K3"];
@@ -13,11 +15,31 @@ export default function Recap() {
   const s = useStyles();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const toast = useToast();
   const { data, isLoading } = useRecap(id);
+
+  const onExport = async () => {
+    if (!data || data.total_sessions === 0) {
+      toast.show("Belum ada data untuk diekspor", "error");
+      return;
+    }
+    try {
+      await downloadRecap(id, data.class_name);
+    } catch (e: any) {
+      toast.show(e?.message || "Gagal mengekspor rekap", "error");
+    }
+  };
 
   return (
     <View style={s.screen}>
-      <Header back title="Rekap Kehadiran" subtitle={data?.class_name} />
+      <Header
+        back
+        title="Rekap Kehadiran"
+        subtitle={data?.class_name}
+        rightIcon="file-excel-outline"
+        onRightPress={onExport}
+        rightTestID="btn-export-recap"
+      />
       {isLoading || !data ? (
         <View style={s.center}>
           <ActivityIndicator color={colors.onSurface} />

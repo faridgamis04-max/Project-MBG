@@ -29,6 +29,10 @@ export function exportUrl(archiveId: string, format: "pdf" | "docx" | "xlsx") {
   return `${API}/archives/${archiveId}/export?format=${format}`;
 }
 
+export function recapExportUrl(classId: string) {
+  return `${API}/classes/${classId}/recap/export`;
+}
+
 export function logoUrl(version?: string | number) {
   return `${API}/profile/logo${version ? `?v=${version}` : ""}`;
 }

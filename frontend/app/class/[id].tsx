@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, FlatList, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import dayjs from "dayjs";
@@ -8,6 +8,7 @@ import { Icon } from "@/src/components/Icon";
 import { Button, Card, ConfirmModal } from "@/src/components/ui";
 import { useToast } from "@/src/components/toast";
 import { useAttendance, useClass, useDeleteClass } from "@/src/hooks";
+import { AttendanceSession } from "@/src/api";
 import { makeStyles, spacing, fontSize, fonts, useTheme } from "@/src/theme";
 
 const CODES = ["H", "S", "I", "A", "K3"];
@@ -29,6 +30,24 @@ export default function ClassDetail() {
       onSuccess: () => {
         toast.show("Kelas dihapus", "success");
         router.back();
+      },
+    });
+  };
+
+  const buatJurnal = (sess: AttendanceSession) => {
+    const sum = sess.summary || {};
+    const parts = CODES.map((c) => `${c}:${sum[c] || 0}`).join(" · ");
+    const kegiatan = [sess.materi ? `Materi: ${sess.materi}.` : "", `Kehadiran — ${parts}.`]
+      .filter(Boolean)
+      .join(" ");
+    router.push({
+      pathname: "/jurnal",
+      params: {
+        auto: "1",
+        tanggal: sess.tanggal,
+        nama_kelas: cls?.nama_kelas || sess.class_name || "",
+        materi: sess.materi || "",
+        kegiatan,
       },
     });
   };
@@ -99,6 +118,10 @@ export default function ClassDetail() {
                   </View>
                 ))}
               </View>
+              <Pressable onPress={() => buatJurnal(item)} style={s.journalBtn} testID={`btn-journal-from-session-${item.id}`}>
+                <Icon name="notebook-plus-outline" size={16} color={colors.onSurface} />
+                <Text style={s.journalBtnText}>Buat Jurnal</Text>
+              </Pressable>
             </Card>
           )}
         />
@@ -146,5 +169,7 @@ const useStyles = makeStyles((c) => ({
   summaryChip: { flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 2, borderColor: c.border, paddingHorizontal: spacing.sm, paddingVertical: 4 },
   summaryCode: { fontSize: fontSize.sm, fontWeight: "900", color: c.onSurface, fontFamily: fonts.mono },
   summaryVal: { fontSize: fontSize.sm, color: c.onSurfaceSecondary, fontFamily: fonts.mono },
+  journalBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, borderWidth: 2, borderColor: c.borderStrong, paddingVertical: spacing.sm, marginTop: spacing.xs },
+  journalBtnText: { fontSize: fontSize.sm, fontWeight: "800", color: c.onSurface, textTransform: "uppercase", letterSpacing: 0.5 },
   footer: { borderTopWidth: 3, borderColor: c.borderStrong, padding: spacing.md, backgroundColor: c.surface },
 }));

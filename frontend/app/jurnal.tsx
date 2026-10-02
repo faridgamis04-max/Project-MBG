@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FlatList, Modal, Pressable, Text, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import dayjs from "dayjs";
 import { Header } from "@/src/components/Header";
@@ -19,6 +20,14 @@ export default function JurnalScreen() {
   const { data: journals, isLoading } = useJournals();
   const saveMut = useSaveJournal();
   const delMut = useDeleteJournal();
+  const params = useLocalSearchParams<{
+    auto?: string;
+    tanggal?: string;
+    nama_kelas?: string;
+    materi?: string;
+    kegiatan?: string;
+  }>();
+  const prefilled = useRef(false);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Journal | null>(null);
@@ -29,6 +38,20 @@ export default function JurnalScreen() {
   const [materi, setMateri] = useState("");
   const [kegiatan, setKegiatan] = useState("");
   const [catatan, setCatatan] = useState("");
+
+  // Auto-open a prefilled new-journal modal when coming from an attendance session.
+  useEffect(() => {
+    if (params.auto === "1" && !prefilled.current) {
+      prefilled.current = true;
+      setEditing(null);
+      setTanggal(params.tanggal || dayjs().format("YYYY-MM-DD"));
+      setKelas(params.nama_kelas || "");
+      setMateri(params.materi || "");
+      setKegiatan(params.kegiatan || "");
+      setCatatan("");
+      setOpen(true);
+    }
+  }, [params.auto, params.tanggal, params.nama_kelas, params.materi, params.kegiatan]);
 
   const openNew = () => {
     setEditing(null);

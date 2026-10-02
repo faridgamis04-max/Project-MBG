@@ -8,6 +8,8 @@ from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from openpyxl import Workbook
 from openpyxl.styles import Font as XLFont, Alignment as XLAlign, Border, Side, PatternFill
+from openpyxl.drawing.image import Image as XLImage
+from openpyxl.utils import get_column_letter
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -290,6 +292,25 @@ def to_pdf(title: str, md: str, meta: Optional[Dict], logo_bytes: Optional[bytes
 # ---------------------------------------------------------------------------
 # EXCEL
 # ---------------------------------------------------------------------------
+def _embed_xlsx_logo(ws, logo_bytes: Optional[bytes]) -> int:
+    """Insert the school logo at the top-left; return the next free row (1-based)."""
+    if not logo_bytes:
+        return 1
+    try:
+        from PIL import Image as PILImage
+        pil = PILImage.open(io.BytesIO(logo_bytes))
+        w, h = pil.size
+        scale = 80.0 / max(w or 1, h or 1)
+        iw, ih = max(1, int((w or 1) * scale)), max(1, int((h or 1) * scale))
+        img = XLImage(io.BytesIO(logo_bytes))
+        img.width, img.height = iw, ih
+        ws.add_image(img, "A1")
+        ws.row_dimensions[1].height = ih * 0.75 + 6
+        return 2
+    except Exception:
+        return 1
+
+
 def to_xlsx(title: str, md: str, meta: Optional[Dict], logo_bytes: Optional[bytes] = None) -> bytes:
     wb = Workbook()
     ws = wb.active
@@ -312,6 +333,7 @@ def to_xlsx(title: str, md: str, meta: Optional[Dict], logo_bytes: Optional[byte
         r += 1
 
     if meta and meta.get("show_kop"):
+        r = _embed_xlsx_logo(ws, logo_bytes)
         put(meta.get("dinas", ""), XLFont(bold=True, size=12))
         put(meta.get("nama_sekolah", ""), XLFont(bold=True, size=14))
         addr = (meta.get("alamat_sekolah") or "")
@@ -353,6 +375,84 @@ def to_xlsx(title: str, md: str, meta: Optional[Dict], logo_bytes: Optional[byte
             r += 1
     for col in range(1, 8):
         ws.column_dimensions[chr(64 + col)].width = 22
+    bio = io.BytesIO()
+    wb.save(bio)
+    return bio.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# EXCEL - Attendance recap
+# ---------------------------------------------------------------------------
+def recap_to_xlsx(recap: Dict, meta: Optional[Dict] = None, logo_bytes: Optional[bytes] = None) -> bytes:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Rekap Kehadiran"
+    thin = Side(style="thin", color="000000")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    bold = XLFont(bold=True)
+    center = XLAlign(horizontal="center", vertical="center")
+    left = XLAlign(horizontal="left", vertical="center")
+    hdr_fill = PatternFill("solid", fgColor="EAEAEA")
+    codes = ["H", "S", "I", "A", "K3"]
+    cols = ["No", "Nama"] + codes + ["Total Sesi", "% Hadir"]
+    ncol = len(cols)
+
+    r = 1
+
+    def merge_line(text, font=None):
+        nonlocal r
+        c = ws.cell(row=r, column=1, value=text)
+        if font:
+            c.font = font
+        c.alignment = XLAlign(horizontal="center", vertical="center", wrap_text=True)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=ncol)
+        r += 1
+
+    if meta and meta.get("show_kop"):
+        r = _embed_xlsx_logo(ws, logo_bytes)
+        if meta.get("dinas"):
+            merge_line(meta.get("dinas", ""), XLFont(bold=True, size=12))
+        if meta.get("nama_sekolah"):
+            merge_line(meta.get("nama_sekolah", ""), XLFont(bold=True, size=14))
+        addr = meta.get("alamat_sekolah") or ""
+        npsn = meta.get("npsn") or ""
+        line = addr + (f" | NPSN: {npsn}" if npsn else "")
+        if line.strip():
+            merge_line(line)
+        r += 1
+
+    merge_line(f"REKAP KEHADIRAN — {recap.get('class_name', '')}".strip(" —"), XLFont(bold=True, size=13))
+    merge_line(f"Total {recap.get('total_sessions', 0)} sesi presensi")
+    r += 1
+
+    for ci, h in enumerate(cols, start=1):
+        c = ws.cell(row=r, column=ci, value=h)
+        c.font = bold
+        c.border = border
+        c.fill = hdr_fill
+        c.alignment = center
+    r += 1
+
+    for idx, st in enumerate(recap.get("students", []), start=1):
+        counts = st.get("counts", {})
+        values = (
+            [st.get("no_absen") or idx, st.get("nama", "")]
+            + [counts.get(cd, 0) for cd in codes]
+            + [st.get("total", 0), f"{st.get('hadir_pct', 0)}%"]
+        )
+        for ci, v in enumerate(values, start=1):
+            c = ws.cell(row=r, column=ci, value=v)
+            c.border = border
+            c.alignment = left if ci == 2 else center
+        r += 1
+
+    r += 1
+    merge_line("H=Hadir · S=Sakit · I=Izin · A=Alpa · K3=Catatan Kesehatan")
+
+    widths = [5, 28, 6, 6, 6, 6, 6, 11, 10]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
     bio = io.BytesIO()
     wb.save(bio)
     return bio.getvalue()
