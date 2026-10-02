@@ -29,6 +29,35 @@ export function exportUrl(archiveId: string, format: "pdf" | "docx" | "xlsx") {
   return `${API}/archives/${archiveId}/export?format=${format}`;
 }
 
+export function logoUrl(version?: string | number) {
+  return `${API}/profile/logo${version ? `?v=${version}` : ""}`;
+}
+
+export type Journal = {
+  id: string;
+  tanggal: string;
+  nama_kelas: string;
+  materi: string;
+  kegiatan: string;
+  catatan: string;
+  created_at: string;
+};
+
+export type RecapStudent = {
+  nama: string;
+  no_absen: string;
+  counts: Record<string, number>;
+  hadir: number;
+  total: number;
+  hadir_pct: number;
+};
+
+export type Recap = {
+  total_sessions: number;
+  class_name: string;
+  students: RecapStudent[];
+};
+
 // ---- Types ----
 export type Profile = {
   nama_guru: string;
@@ -38,6 +67,7 @@ export type Profile = {
   dinas: string;
   alamat_sekolah: string;
   tahun_ajaran: string;
+  has_logo?: boolean;
 };
 
 export type ArchiveMeta = {

@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.pjokmodulajar.inkw5c"
+      "bundleIdentifier": "com.emergent.pjokmodulajar.inkw5c",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Pilih logo sekolah untuk kop surat"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -40,7 +43,13 @@
       "expo-web-browser",
       "expo-status-bar",
       "expo-sharing",
-      "@react-native-vector-icons/material-design-icons"
+      "@react-native-vector-icons/material-design-icons",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Pilih logo sekolah untuk kop surat"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

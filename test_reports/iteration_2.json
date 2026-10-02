@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 2 backend-only testing for PJOK Super-App. Added /app/backend/tests/test_pjok_iter2.py with 18 focused tests covering ONLY the new endpoints (profile logo, logo-embedded exports, journals CRUD, Edit Siswa, Recap math, malformed-id -> 400). Result: 18/18 PASS (54s, sequential). GET /api/profile now returns has_logo (bool) and flips correctly across upload/delete; POST /api/profile/logo multipart upload stores to Emergent Object Storage, GET streams PNG back with correct Content-Type and PNG magic bytes, DELETE removes both logo_path and logo_ctype and subsequent GET returns 404; 5MB size cap enforced (400). After logo upload, POST /api/generate/modul-ajar correctly sets meta.logo=true and GET /api/archives/{id}/export?format=docx|pdf both return valid files (PK/%PDF magic, >2KB). Journals: POST/GET/PUT/DELETE all work; list is sorted by tanggal desc (verified: 2026-01-20 before 2026-01-05); soft-deleted journal disappears from list while others remain. PUT /api/classes/{id} fully replaces students array (3->2 verified). GET /api/classes/{id}/recap returns correct shape {total_sessions, class_name, students[{nama,no_absen,counts{H,S,I,A,K3},hadir,total,hadir_pct}]} and math is correct (1H/2sessions=50%, 0H/2=0%, 0 sessions=0%). Malformed-ID handling verified across 10 routes (journals PUT/DELETE, classes GET/PUT/DELETE/recap/attendance, archives GET/export/DELETE) - all return 400 (not 500). This resolves the iteration 1 minor finding about bson.InvalidId leaking as 500. Note: iteration 1 also observed that archives/export silently falls back to pdf for invalid format values; still not validated in code (low priority, not part of this iteration's scope).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/archives/{id}/export", "issue": "Carry-over from iteration 1: format query param still not validated; any value other than docx/xlsx silently falls back to pdf. Consider returning 400 for unknown formats. Out of scope for this iteration."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pjok_iter2.py",
+    "/app/backend/tests/test_pjok_backend.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/iter2_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py grew to ~611 lines - still manageable but approaching the 700-line split threshold. Consider extracting profile/logo + journals routers next.",
+    "oid() helper correctly raises HTTPException(400,'ID tidak valid') on bson.InvalidId; now consistently used across journals/classes/archives/export routes - fixes iter1 finding.",
+    "GET /api/profile returns dict (not Profile model) so has_logo bool can be injected cleanly without touching the Profile schema. Good.",
+    "Logo pipeline: UploadFile.read -> size check -> uuid4 path -> storage.put_object via run_in_threadpool (sync requests) -> store {logo_path, logo_ctype} on profile singleton. Clean separation.",
+    "build_kop_meta sets meta.logo from bool(profile.logo_path); export_archive loads bytes only when both show_kop and meta.logo are true - correct conditional.",
+    "attendance_recap: student lookup is by 'nama' only (not no_absen). Two students with the same name would collide (edge case worth documenting). hadir_pct uses round() which gives banker's rounding at .5 - acceptable for display.",
+    "update_class uses ClassCreate body.model_dump() which overwrites the WHOLE doc including students - this is the intended Edit Siswa behavior but also wipes created_at if a client misses it; current code uses $set so untouched fields remain, so safe.",
+    "update_journal uses body.model_dump() with JournalCreate - full replace of CRUD fields; safe since created_at/deleted_at are preserved by $set."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pjok_iter2.py (new, 18 tests)"
+  ],
+  "success_rate": {"backend": "100% (18/18 iter2 tests)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "All test data prefixed with 'TEST '. Fixtures soft-delete classes/archives/journals after use. Logo uploaded during export test is deleted at teardown. Profile singleton was reset to empty fields at the end of the session so has_logo=false and no stale TEST data remains.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run with: pytest /app/backend/tests/test_pjok_iter2.py -v -o 'addopts=' (sequential). The LLM-based test (TestLogoEmbeddedExport) takes ~30s and consumes 1 Emergent credit. BASE_URL from EXPO_PUBLIC_BACKEND_URL in /app/frontend/.env. The 5MB oversize test POSTs ~5MB of bytes - takes a few seconds. Test data cleanup is automatic via fixture teardowns.",
+  "rca_of_issue": "No issues to RCA this iteration - all 18 tests passed on first run. The previous iteration's 'malformed id -> 500' observation is now fixed via the oid() helper (verified across 10 routes). Logo embed path (storage.get_object -> export_utils.to_docx/to_pdf) works correctly; empty bytes handling has a try/except so broken storage degrades gracefully to no-logo export."
+}

@@ -1,6 +1,7 @@
 import { Text, View } from "react-native";
+import { Image } from "expo-image";
 import { makeStyles, spacing, fontSize } from "@/src/theme";
-import { ArchiveMeta } from "@/src/api";
+import { ArchiveMeta, logoUrl } from "@/src/api";
 
 // Official school letterhead (Kop Surat) rendered from archive meta.
 export function KopSurat({ meta }: { meta: ArchiveMeta }) {
@@ -20,6 +21,7 @@ export function KopSurat({ meta }: { meta: ArchiveMeta }) {
   );
   return (
     <View style={s.wrap} testID="kop-surat">
+      {meta.logo && <Image source={{ uri: logoUrl() }} style={s.logo} contentFit="contain" testID="kop-logo" />}
       {!!meta.dinas && <Text style={s.dinas}>{meta.dinas}</Text>}
       {!!meta.nama_sekolah && <Text style={s.sekolah}>{meta.nama_sekolah}</Text>}
       {(!!meta.alamat_sekolah || !!meta.npsn) && (
@@ -54,6 +56,7 @@ const useStyles = makeStyles((c) => ({
     marginBottom: spacing.lg,
   },
   dinas: { fontSize: fontSize.base, fontWeight: "800", color: c.onSurface, textAlign: "center", textTransform: "uppercase" },
+  logo: { width: 56, height: 56, alignSelf: "center", marginBottom: spacing.xs },
   sekolah: { fontSize: fontSize.xl, fontWeight: "900", color: c.onSurface, textAlign: "center", textTransform: "uppercase" },
   alamat: { fontSize: fontSize.sm, color: c.onSurfaceSecondary, textAlign: "center", marginTop: 2 },
   hr: { height: 2, backgroundColor: c.borderStrong, marginVertical: spacing.sm },

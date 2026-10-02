@@ -1,13 +1,16 @@
 import os
 import re
+import io
+import uuid
 import asyncio
 import logging
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional, Annotated, Any
 
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import Response
+from fastapi.concurrency import run_in_threadpool
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -18,6 +21,7 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 import prompts
 import export_utils
+import storage
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -157,6 +161,14 @@ class ArchiveCreate(BaseModel):
     meta: dict = {}
 
 
+class JournalCreate(BaseModel):
+    tanggal: str
+    nama_kelas: str = ""
+    materi: str = ""
+    kegiatan: str = ""
+    catatan: str = ""
+
+
 # ---------------------------------------------------------------------------
 # LLM
 # ---------------------------------------------------------------------------
@@ -190,6 +202,7 @@ async def get_profile_doc() -> dict:
 def build_kop_meta(profile: dict, kelas_fase: str, materi: str, semester: str) -> dict:
     return {
         "show_kop": True,
+        "logo": bool(profile.get("logo_path")),
         "dinas": profile.get("dinas", ""),
         "nama_sekolah": profile.get("nama_sekolah", ""),
         "alamat_sekolah": profile.get("alamat_sekolah", ""),
@@ -225,11 +238,12 @@ async def root():
     return {"message": "PJOK Super-App API", "model": MODEL_NAME}
 
 
-@api_router.get("/profile", response_model=Profile)
+@api_router.get("/profile")
 async def get_profile():
     doc = await get_profile_doc()
-    doc.pop("_id", None)
-    return Profile(**{k: v for k, v in doc.items() if k in Profile.model_fields})
+    data = {k: doc.get(k, "") for k in Profile.model_fields}
+    data["has_logo"] = bool(doc.get("logo_path"))
+    return data
 
 
 @api_router.put("/profile", response_model=Profile)
@@ -240,6 +254,79 @@ async def update_profile(profile: Profile):
         upsert=True,
     )
     return profile
+
+
+@api_router.post("/profile/logo")
+async def upload_logo(file: UploadFile = File(...)):
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(400, "Ukuran logo maksimal 5MB")
+    ext = (file.filename or "logo.png").rsplit(".", 1)[-1].lower()
+    if ext not in ("png", "jpg", "jpeg", "webp"):
+        ext = "png"
+    path = f"{storage.APP_NAME}/uploads/profile/logo-{uuid.uuid4().hex}.{ext}"
+    ctype = file.content_type or "image/png"
+    try:
+        await run_in_threadpool(storage.put_object, path, data, ctype)
+    except Exception as e:
+        logger.error("logo upload failed: %s", e)
+        raise HTTPException(502, "Gagal mengunggah logo")
+    await db.profile.update_one(
+        {"_id": "singleton"},
+        {"$set": {"logo_path": path, "logo_ctype": ctype, "updated_at": now_iso()}},
+        upsert=True,
+    )
+    return {"ok": True}
+
+
+@api_router.get("/profile/logo")
+async def get_logo():
+    doc = await get_profile_doc()
+    path = doc.get("logo_path")
+    if not path:
+        raise HTTPException(404, "Logo belum diatur")
+    try:
+        content, ctype = await run_in_threadpool(storage.get_object, path)
+    except Exception:
+        raise HTTPException(404, "Logo tidak ditemukan")
+    return Response(content=content, media_type=ctype, headers={"Cache-Control": "no-cache"})
+
+
+@api_router.delete("/profile/logo")
+async def delete_logo():
+    await db.profile.update_one({"_id": "singleton"}, {"$unset": {"logo_path": "", "logo_ctype": ""}})
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Routes - teaching journal (Modul 7)
+# ---------------------------------------------------------------------------
+@api_router.post("/journals")
+async def create_journal(body: JournalCreate):
+    doc = {**body.model_dump(), "created_at": now_iso(), "deleted_at": None}
+    res = await db.journals.insert_one(doc)
+    doc["id"] = str(res.inserted_id)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.get("/journals")
+async def list_journals():
+    docs = await db.journals.find({"deleted_at": None}).sort("tanggal", -1).to_list(500)
+    return [_serialize(d) for d in docs]
+
+
+@api_router.put("/journals/{journal_id}")
+async def update_journal(journal_id: str, body: JournalCreate):
+    await db.journals.update_one({"_id": oid(journal_id)}, {"$set": {**body.model_dump(), "updated_at": now_iso()}})
+    doc = await db.journals.find_one({"_id": oid(journal_id)})
+    return _serialize(doc)
+
+
+@api_router.delete("/journals/{journal_id}")
+async def delete_journal(journal_id: str):
+    await db.journals.update_one({"_id": oid(journal_id)}, {"$set": {"deleted_at": now_iso()}})
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------
@@ -385,6 +472,40 @@ async def list_attendance(class_id: str):
     return [_serialize(d) for d in docs]
 
 
+@api_router.get("/classes/{class_id}/recap")
+async def attendance_recap(class_id: str):
+    cls = await db.classes.find_one({"_id": oid(class_id), "deleted_at": None})
+    if not cls:
+        raise HTTPException(404, "Kelas tidak ditemukan")
+    sessions = await db.attendance.find({"class_id": class_id, "deleted_at": None}).to_list(1000)
+    total = len(sessions)
+    students = cls.get("students", [])
+
+    def key_of(nama, no):
+        return f"{no}|{nama}".strip("|")
+
+    # Build lookup of records per session by name
+    recap = []
+    codes = ["H", "S", "I", "A", "K3"]
+    for st in students:
+        counts = {c: 0 for c in codes}
+        for sess in sessions:
+            rec = next((r for r in sess.get("records", []) if r.get("nama") == st.get("nama")), None)
+            if rec and rec.get("status") in counts:
+                counts[rec["status"]] += 1
+        hadir = counts["H"]
+        pct = round(hadir / total * 100) if total else 0
+        recap.append({
+            "nama": st.get("nama", ""),
+            "no_absen": st.get("no_absen", ""),
+            "counts": counts,
+            "hadir": hadir,
+            "total": total,
+            "hadir_pct": pct,
+        })
+    return {"total_sessions": total, "class_name": cls.get("nama_kelas", ""), "students": recap}
+
+
 # ---------------------------------------------------------------------------
 # Routes - archives
 # ---------------------------------------------------------------------------
@@ -426,16 +547,26 @@ async def export_archive(archive_id: str, format: str = "pdf"):
     meta = doc.get("meta", {})
     safe = re.sub(r"[^A-Za-z0-9]+", "_", title)[:50] or "dokumen"
 
+    logo_bytes = None
+    if meta.get("show_kop") and meta.get("logo"):
+        prof = await get_profile_doc()
+        lp = prof.get("logo_path")
+        if lp:
+            try:
+                logo_bytes, _ = await run_in_threadpool(storage.get_object, lp)
+            except Exception:
+                logo_bytes = None
+
     if format == "docx":
-        data = export_utils.to_docx(title, md, meta)
+        data = export_utils.to_docx(title, md, meta, logo_bytes)
         media = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         ext = "docx"
     elif format == "xlsx":
-        data = export_utils.to_xlsx(title, md, meta)
+        data = export_utils.to_xlsx(title, md, meta, logo_bytes)
         media = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ext = "xlsx"
     else:
-        data = export_utils.to_pdf(title, md, meta)
+        data = export_utils.to_pdf(title, md, meta, logo_bytes)
         media = "application/pdf"
         ext = "pdf"
 
@@ -463,6 +594,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup_init_storage():
+    try:
+        await run_in_threadpool(storage.init_storage)
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.warning("Object storage init failed (will retry on demand): %s", e)
 
 
 @app.on_event("shutdown")

@@ -13,7 +13,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable,
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image as RLImage,
 )
 
 
@@ -110,13 +110,21 @@ def _kop_lines(meta: Optional[Dict]) -> List[Dict]:
 # ---------------------------------------------------------------------------
 # WORD
 # ---------------------------------------------------------------------------
-def to_docx(title: str, md: str, meta: Optional[Dict]) -> bytes:
+def to_docx(title: str, md: str, meta: Optional[Dict], logo_bytes: Optional[bytes] = None) -> bytes:
     doc = Document()
     style = doc.styles["Normal"]
     style.font.name = "Calibri"
     style.font.size = Pt(11)
 
     if meta and meta.get("show_kop"):
+        if logo_bytes:
+            try:
+                from docx.shared import Inches
+                p = doc.add_paragraph()
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p.add_run().add_picture(io.BytesIO(logo_bytes), width=Inches(0.9))
+            except Exception:
+                pass
         for key, size, bold in [("dinas", 12, True), ("nama_sekolah", 14, True)]:
             val = meta.get(key)
             if val:
@@ -186,7 +194,7 @@ def to_docx(title: str, md: str, meta: Optional[Dict]) -> bytes:
 # ---------------------------------------------------------------------------
 # PDF
 # ---------------------------------------------------------------------------
-def to_pdf(title: str, md: str, meta: Optional[Dict]) -> bytes:
+def to_pdf(title: str, md: str, meta: Optional[Dict], logo_bytes: Optional[bytes] = None) -> bytes:
     bio = io.BytesIO()
     docpdf = SimpleDocTemplate(bio, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
                                topMargin=16 * mm, bottomMargin=16 * mm, title=title)
@@ -197,6 +205,17 @@ def to_pdf(title: str, md: str, meta: Optional[Dict]) -> bytes:
     story = []
 
     if meta and meta.get("show_kop"):
+        if logo_bytes:
+            try:
+                img = RLImage(io.BytesIO(logo_bytes))
+                ratio = (img.imageHeight or 1) / (img.imageWidth or 1)
+                img.drawWidth = 26 * mm
+                img.drawHeight = 26 * mm * ratio
+                img.hAlign = "CENTER"
+                story.append(img)
+                story.append(Spacer(1, 4))
+            except Exception:
+                pass
         if meta.get("dinas"):
             story.append(Paragraph(f"<b>{meta['dinas']}</b>", ParagraphStyle("d", parent=center_b, fontSize=11)))
         if meta.get("nama_sekolah"):
@@ -271,7 +290,7 @@ def to_pdf(title: str, md: str, meta: Optional[Dict]) -> bytes:
 # ---------------------------------------------------------------------------
 # EXCEL
 # ---------------------------------------------------------------------------
-def to_xlsx(title: str, md: str, meta: Optional[Dict]) -> bytes:
+def to_xlsx(title: str, md: str, meta: Optional[Dict], logo_bytes: Optional[bytes] = None) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "Dokumen"

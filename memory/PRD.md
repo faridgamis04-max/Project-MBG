@@ -35,12 +35,18 @@ nilai, presensi) dengan cepat sesuai Kurikulum Merdeka.
 - [x] Kelas/Rombel CRUD + riwayat presensi
 - [x] Backend tested 21/21 pass
 
+### Iteration 2 (2026-06)
+- [x] Edit Siswa — edit kelas & daftar siswa yang sudah ada (PUT /api/classes/{id}, screen class/edit/[id])
+- [x] Rekap Kehadiran — % hadir per siswa lintas sesi (GET /api/classes/{id}/recap, screen class/recap/[id])
+- [x] Jurnal Mengajar — CRUD jurnal harian (journals endpoints, screen app/jurnal)
+- [x] Logo Sekolah — unggah lewat Emergent Object Storage, tampil di Kop Surat + tertanam di ekspor Word/PDF
+- [x] Iteration 2 backend tested 18/18 pass
+
 ## Backlog
-- P1: Edit daftar siswa pada kelas yang sudah dibuat (saat ini hanya saat create)
-- P1: Jurnal harian mengajar (Modul 7 — metadata jurnal)
-- P2: Rekapitulasi presensi lintas sesi (persentase kehadiran per siswa)
+- P1: Jurnal bisa prefilled dari sesi presensi (auto-link)
+- P2: Rekap kehadiran bisa diekspor ke Excel
+- P2: Logo tertanam juga di ekspor Excel (saat ini Word & PDF saja)
 - P2: Streaming output AI (token-by-token) untuk dokumen panjang
-- P2: Logo sekolah pada Kop Surat
 - P2: Dark mode toggle manual
 
 ## Next Tasks

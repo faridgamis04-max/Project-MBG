@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, Archive, AttendanceSession, ClassDoc, Profile } from "./api";
+import { api, Archive, AttendanceSession, ClassDoc, Journal, Profile, Recap } from "./api";
 
 // ---- Profile ----
 export function useProfile() {
@@ -102,6 +102,40 @@ export function useSaveAttendance(classId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: any) => api.post<AttendanceSession>(`/classes/${classId}/attendance`, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance", classId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["attendance", classId] });
+      qc.invalidateQueries({ queryKey: ["recap", classId] });
+    },
+  });
+}
+
+// ---- Recap ----
+export function useRecap(classId: string) {
+  return useQuery({
+    queryKey: ["recap", classId],
+    queryFn: () => api.get<Recap>(`/classes/${classId}/recap`),
+    enabled: !!classId,
+  });
+}
+
+// ---- Journals ----
+export function useJournals() {
+  return useQuery({ queryKey: ["journals"], queryFn: () => api.get<Journal[]>("/journals") });
+}
+
+export function useSaveJournal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: string; body: any }) =>
+      id ? api.put<Journal>(`/journals/${id}`, body) : api.post<Journal>("/journals", body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["journals"] }),
+  });
+}
+
+export function useDeleteJournal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del(`/journals/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["journals"] }),
   });
 }

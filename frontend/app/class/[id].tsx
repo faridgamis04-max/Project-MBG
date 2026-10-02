@@ -69,6 +69,10 @@ export default function ClassDetail() {
                   </View>
                 </View>
               </Card>
+              <View style={s.actionRow}>
+                <Button title="Edit Kelas" icon="pencil-outline" variant="outline" onPress={() => router.push(`/class/edit/${id}`)} style={s.actionBtn} testID="btn-edit-class" />
+                <Button title="Rekap Hadir" icon="chart-bar" variant="secondary" onPress={() => router.push(`/class/recap/${id}`)} style={s.actionBtn} testID="btn-recap" />
+              </View>
               <Text style={s.sectionTitle}>Riwayat Presensi</Text>
             </View>
           }
@@ -129,6 +133,8 @@ const useStyles = makeStyles((c) => ({
   statNum: { fontSize: fontSize["2xl"], fontWeight: "900", color: c.onSurface, fontFamily: fonts.mono },
   statLabel: { fontSize: fontSize.sm, color: c.muted, textTransform: "uppercase" },
   sectionTitle: { fontSize: fontSize.sm, fontWeight: "800", color: c.muted, textTransform: "uppercase", letterSpacing: 1 },
+  actionRow: { flexDirection: "row", gap: spacing.md },
+  actionBtn: { flex: 1, paddingHorizontal: spacing.sm },
   emptyText: { fontSize: fontSize.base, color: c.muted, textAlign: "center", paddingVertical: spacing.xl },
   sessionCard: { gap: spacing.sm },
   sessionTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
